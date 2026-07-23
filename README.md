@@ -60,17 +60,18 @@ Unlike standard CRUD applications, this project is engineered with a **Zero-Know
     <td align="center"><b>Main Vault Dashboard</b></td>
   </tr>
   <tr>
-    <td><img src="<img width="1912" height="977" alt="Ekran görüntüsü 2026-07-23 143343" src="https://github.com/user-attachments/assets/7f4a47f5-815a-486c-a348-10f1cf76945f" />" width="400" alt="Giriş Ekranı"/></td>
-    <td><img src="<img width="461" height="515" alt="Ekran görüntüsü 2026-07-23 143329" src="https://github.com/user-attachments/assets/a13ffe4b-0679-4357-afac-0cd7d10e17e2" />" width="400" alt="Ana Kasa Paneli"/></td>
+    <td><img src="https://github.com/user-attachments/assets/7f4a47f5-815a-486c-a348-10f1cf76945f" width="400" alt="Giriş Ekranı"/></td>
+    <td><img src="https://github.com/user-attachments/assets/a13ffe4b-0679-4357-afac-0cd7d10e17e2" width="400" alt="Ana Kasa Paneli"/></td>
   </tr>
   <tr>
     <td align="center"><b>New Password Entry Form</b></td>
     <td align="center"><b>New Vault / Category Creation</b></td>
   </tr>
   <tr>
-    <td><img src="<img width="540" height="810" alt="Ekran görüntüsü 2026-07-23 143319" src="https://github.com/user-attachments/assets/20a50285-08ae-44f1-a6d5-80a6b4ea5e06" />" width="400" alt="Şifre Ekleme"/></td>
-    <td><img src="<img width="1911" height="987" alt="Ekran görüntüsü 2026-07-23 143258" src="https://github.com/user-attachments/assets/216898e1-c142-44ec-ada5-d8a3e9afbdae" />" width="400" alt="Kasa Ekleme"/></td>
+    <td><img src="https://github.com/user-attachments/assets/20a50285-08ae-44f1-a6d5-80a6b4ea5e06" width="400" alt="Şifre Ekleme"/></td>
+    <td><img src="https://github.com/user-attachments/assets/216898e1-c142-44ec-ada5-d8a3e9afbdae" width="400" alt="Kasa Ekleme"/></td>
   </tr>
+</table>
 </table>
 
 
