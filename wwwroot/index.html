@@ -1,0 +1,1531 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sifre Yoneticisi (RSA Tabanli)</title>
+<style>
+    :root {
+        --renk-arka-plan: #1a1a26;
+        --renk-panel: #26283b;
+        --renk-panel-acik: #313349;
+        --renk-vurgu: #89b4fa;
+        --renk-yesil: #a6e3a1;
+        --renk-kirmizi: #f38ba8;
+        --renk-sari: #f9e2af;
+        --renk-metin: #cdd6f4;
+        --renk-metin-soluk: #9399b2;
+        --renk-kenar: #3a3d52;
+        --renk-kategorisiz: #9399b2;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+
+    body {
+        background: var(--renk-arka-plan);
+        color: var(--renk-metin);
+        font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+        margin: 0;
+        position: relative;
+        overflow-x: hidden;
+    }
+
+    /* ============ INTERAKTIF SIBER-AG (CYBER NETWORK) ARKA PLANI ============
+       Tum sayfanin arkasinda sabit duran bir <canvas>. z-index: 0 (negatif
+       DEGIL -- body'nin kendi arka plan boyamasiyla cakisma riskini
+       onlemek icin) ve tum gercek icerik konteynerleri (auth-sarici,
+       ekran-kasa, modal, toast) zaten daha yuksek z-index'e sahip, o yuzden
+       canvas dogal olarak en altta kalir. pointer-events:none sayesinde
+       hicbir tiklamayi/formu ASLA engellemez. */
+    #arka-plan-canvas {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+        opacity: 0.55;
+    }
+
+    /* ============ AUTH EKRANLARI ============ */
+    .auth-sarici {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 16px;
+        position: relative;
+        z-index: 1;
+    }
+
+    .ekran { width: 100%; display: none; }
+    .ekran.aktif { display: block; }
+
+    .marka-baslik {
+        text-align: center;
+        font-size: 1.4rem;
+        font-weight: 800;
+        letter-spacing: -0.01em;
+        margin-bottom: 26px;
+    }
+    .marka-baslik .marka-vurgu { color: var(--renk-vurgu); }
+
+    .auth-kart {
+        background: rgba(38, 40, 59, 0.75);
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 18px;
+        padding: 40px 36px;
+        max-width: 440px;
+        width: 100%;
+        margin: 0 auto;
+        box-shadow: 0 25px 60px -20px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.02) inset;
+    }
+
+    h1 { font-size: 1.7rem; margin: 0 0 6px; letter-spacing: -0.01em; }
+    h3 { margin: 0 0 12px; font-size: 1.05rem; }
+
+    .alt-baslik { color: var(--renk-metin-soluk); font-size: 0.85rem; margin-bottom: 22px; }
+
+    label { display: block; margin: 14px 0 4px; font-size: 0.85rem; color: var(--renk-metin-soluk); }
+
+    input, select, textarea {
+        width: 100%;
+        background: rgba(20, 21, 31, 0.7);
+        border: 1px solid var(--renk-kenar);
+        color: var(--renk-metin);
+        padding: 10px 12px;
+        border-radius: 9px;
+        font-size: 0.95rem;
+        font-family: inherit;
+        transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    textarea { resize: vertical; min-height: 70px; }
+    input:focus, select:focus, textarea:focus {
+        outline: none;
+        border-color: var(--renk-vurgu);
+        box-shadow: 0 0 0 3px rgba(137, 180, 250, 0.15);
+    }
+
+    button {
+        cursor: pointer;
+        border: none;
+        border-radius: 9px;
+        padding: 11px 16px;
+        font-size: 0.95rem;
+        font-weight: 600;
+        background: var(--renk-vurgu);
+        color: #1a1a26;
+        transition: filter 0.15s, transform 0.1s;
+    }
+
+    button:hover { filter: brightness(1.1); }
+    button:active { transform: scale(0.98); }
+
+    .btn-tam { width: 100%; margin-top: 16px; }
+    .yesil { background: var(--renk-yesil); }
+    .kirmizi { background: var(--renk-kirmizi); }
+
+    .duz {
+        background: transparent;
+        color: var(--renk-vurgu);
+        font-weight: 400;
+        padding: 6px 8px;
+    }
+
+    .durum-mesaji { margin-top: 12px; font-size: 0.85rem; color: var(--renk-kirmizi); min-height: 18px; }
+    .durum-mesaji.basarili { color: var(--renk-yesil); }
+
+    /* ============ KASA EKRANI ============ */
+    #ekran-kasa { max-width: none; }
+    #ekran-kasa.aktif {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        z-index: 10;
+        background: var(--renk-arka-plan);
+    }
+
+    .kasa-topbar {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 14px 22px;
+        background: rgba(38, 40, 59, 0.85);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        border-bottom: 1px solid var(--renk-kenar);
+        flex-shrink: 0;
+    }
+
+    .kasa-logo { font-weight: 700; font-size: 1.05rem; white-space: nowrap; }
+    .kasa-logo span { color: var(--renk-vurgu); }
+
+    .kasa-arama { flex: 1; position: relative; max-width: 480px; }
+    .kasa-arama input { padding-left: 36px; }
+    .kasa-arama::before {
+        content: "🔍";
+        position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+        font-size: 0.9rem; opacity: 0.6;
+    }
+
+    .kasa-topbar-sag { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+    .kullanici-rozeti {
+        background: var(--renk-panel-acik);
+        padding: 7px 14px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        color: var(--renk-metin-soluk);
+    }
+
+    .btn-yeni-ekle { background: var(--renk-yesil); white-space: nowrap; }
+
+    .kasa-layout { display: flex; flex: 1; min-height: 0; }
+
+    /* ---- SIDEBAR ---- */
+    .sidebar {
+        width: 250px;
+        flex-shrink: 0;
+        background: rgba(38, 40, 59, 0.6);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border-right: 1px solid var(--renk-kenar);
+        padding: 18px 12px;
+        overflow-y: auto;
+    }
+
+    .sidebar-baslik {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--renk-metin-soluk);
+        padding: 14px 10px 6px;
+    }
+
+    .sidebar-ekle-btn {
+        background: none;
+        border: 1px solid var(--renk-kenar);
+        color: var(--renk-vurgu);
+        font-size: 0.7rem;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 6px;
+        margin: 0;
+    }
+
+    .sidebar-oge {
+        display: flex;
+        align-items: center;
+        border-radius: 8px;
+        margin-bottom: 2px;
+        transition: background 0.12s;
+    }
+    .sidebar-oge:hover { background: var(--renk-panel-acik); }
+    .sidebar-oge.secili { background: var(--renk-vurgu); color: #1a1a26; font-weight: 600; }
+
+    .sidebar-oge-tiklanabilir {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 9px 10px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        color: inherit;
+        min-width: 0;
+    }
+
+    .sidebar-ikon { font-size: 1rem; width: 20px; text-align: center; flex-shrink: 0; }
+    .sidebar-etiket { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sidebar-sayac {
+        font-size: 0.75rem;
+        background: rgba(255,255,255,0.12);
+        padding: 1px 8px;
+        border-radius: 10px;
+        color: inherit;
+        opacity: 0.85;
+        flex-shrink: 0;
+    }
+    .sidebar-oge.secili .sidebar-sayac { background: rgba(0,0,0,0.15); }
+
+    .sidebar-sil-btn {
+        background: none; border: none; padding: 6px 10px; margin: 0;
+        color: var(--renk-metin-soluk); cursor: pointer; font-size: 0.85rem;
+        flex-shrink: 0;
+    }
+    .sidebar-oge.secili .sidebar-sil-btn { color: rgba(26,26,38,0.6); }
+    .sidebar-sil-btn:hover { color: var(--renk-kirmizi); }
+
+    /* ---- ANA ICERIK / KART GRID ---- */
+    .ana-icerik { flex: 1; overflow-y: auto; padding: 22px 26px; }
+
+    .icerik-baslik-satiri { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 18px; }
+    .icerik-baslik-satiri h2 { margin: 0; font-size: 1.3rem; }
+    .icerik-sayac-metni { color: var(--renk-metin-soluk); font-size: 0.85rem; }
+
+    .kart-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 16px; }
+
+    .kart {
+        background: var(--renk-panel);
+        border: 1px solid var(--renk-kenar);
+        border-radius: 14px;
+        padding: 16px;
+        transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+    }
+    .kart:hover {
+        border-color: var(--renk-vurgu);
+        transform: translateY(-2px);
+        box-shadow: 0 12px 30px -12px rgba(0,0,0,0.5);
+    }
+
+    .kart-ust { display: flex; align-items: flex-start; gap: 10px; }
+
+    .kart-avatar {
+        width: 42px; height: 42px; border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.3rem;
+        flex-shrink: 0;
+        box-shadow: 0 4px 12px -4px rgba(0,0,0,0.4);
+    }
+
+    .kart-baslik-blok { flex: 1; min-width: 0; }
+    .kart-baslik-blok strong { display: block; font-size: 0.98rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .kart-kategori-etiket { font-size: 0.72rem; opacity: 0.9; }
+
+    .yildiz-btn { background: none; border: none; padding: 2px; margin: 0; font-size: 1.15rem; color: var(--renk-metin-soluk); cursor: pointer; flex-shrink: 0; }
+    .yildiz-btn.aktif { color: var(--renk-sari); }
+
+    .kart-detay { margin-top: 12px; font-size: 0.82rem; color: var(--renk-metin-soluk); }
+    .kart-detay div { margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .kart-detay a { color: var(--renk-vurgu); text-decoration: none; }
+    .kart-detay a:hover { text-decoration: underline; }
+
+    .kart-aksiyonlar { display: flex; gap: 6px; margin-top: 14px; border-top: 1px solid var(--renk-kenar); padding-top: 12px; }
+    .kart-aksiyonlar button { flex: 1; background: var(--renk-panel-acik); color: var(--renk-metin); padding: 7px 4px; font-size: 0.85rem; font-weight: 400; }
+    .kart-aksiyonlar button:hover { background: var(--renk-vurgu); color: #1a1a26; }
+    .kart-aksiyonlar button.sil-btn:hover { background: var(--renk-kirmizi); }
+
+    .sifre-goster-kutusu {
+        background: #101018; border: 1px solid var(--renk-vurgu); border-radius: 8px;
+        padding: 10px 12px; margin-top: 10px; font-family: Consolas, monospace;
+        font-size: 0.85rem; word-break: break-all; white-space: pre-wrap;
+    }
+
+    .bos-durum { text-align: center; padding: 60px 20px; color: var(--renk-metin-soluk); }
+    .bos-durum-ikon { font-size: 2.4rem; margin-bottom: 10px; }
+    .bos-durum button { margin-top: 16px; }
+
+    .gizli { display: none !important; }
+
+    /* ---- MODAL ---- */
+    .modal-arka-plan {
+        position: fixed; inset: 0; background: rgba(10,10,16,0.7);
+        backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+        display: flex; align-items: center; justify-content: center;
+        z-index: 100; padding: 20px;
+    }
+    .modal-kutu {
+        background: var(--renk-panel); border: 1px solid var(--renk-kenar);
+        border-radius: 16px; padding: 26px;
+        width: 100%; max-width: 440px; max-height: 88vh; overflow-y: auto;
+        box-shadow: 0 30px 60px -20px rgba(0,0,0,0.7);
+    }
+    .modal-satir-2 { display: flex; gap: 10px; }
+    .modal-satir-2 > div { flex: 1; }
+    .modal-checkbox-satiri { display: flex; align-items: center; gap: 8px; margin-top: 16px; }
+    .modal-checkbox-satiri input { width: auto; }
+    .modal-butonlar { display: flex; gap: 10px; margin-top: 20px; }
+    .modal-butonlar button { flex: 1; margin: 0; }
+
+    /* ---- EMOJI (SIMGE) SECICI ---- */
+    .simge-izgara {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 6px;
+        margin-top: 4px;
+    }
+    .simge-secenek {
+        background: rgba(20, 21, 31, 0.7);
+        border: 2px solid transparent;
+        border-radius: 8px;
+        font-size: 1.2rem;
+        padding: 7px 0;
+        cursor: pointer;
+        transition: border-color 0.12s, transform 0.1s;
+        width: 100%;
+        margin: 0;
+    }
+    .simge-secenek:hover { transform: scale(1.08); filter: none; background: rgba(20, 21, 31, 0.9); }
+    .simge-secenek.secili { border-color: var(--renk-vurgu); background: rgba(137, 180, 250, 0.15); }
+
+    /* ---- TOAST ---- */
+    #toast-konteyner { position: fixed; top: 18px; right: 18px; z-index: 200; display: flex; flex-direction: column; gap: 8px; }
+    .toast {
+        background: var(--renk-panel); border: 1px solid var(--renk-kenar); border-left: 4px solid var(--renk-vurgu);
+        color: var(--renk-metin); padding: 12px 16px; border-radius: 10px; font-size: 0.88rem;
+        box-shadow: 0 10px 25px -10px rgba(0,0,0,0.5); opacity: 0; transform: translateX(20px);
+        transition: opacity 0.2s, transform 0.2s; max-width: 320px;
+    }
+    .toast.goster { opacity: 1; transform: translateX(0); }
+    .toast.hata { border-left-color: var(--renk-kirmizi); }
+    .toast.basarili { border-left-color: var(--renk-yesil); }
+</style>
+</head>
+<body>
+<canvas id="arka-plan-canvas"></canvas>
+
+<!-- ============================================================
+     EKRAN 0: KARSILAMA
+     ============================================================ -->
+<div id="ekran-karsilama" class="ekran aktif">
+    <div class="auth-sarici">
+        <div class="auth-kart">
+            <div class="marka-baslik">🔐 <span class="marka-vurgu">Sifre</span>Kasasi</div>
+            <h1 style="text-align:center;">Hos Geldiniz</h1>
+            <p class="alt-baslik" style="text-align:center;">RSA Tabanli · Cok Kullanicili · Zero Knowledge</p>
+            <button class="btn-tam" onclick="ekraniGoster('ekran-giris')">Giris Yap</button>
+            <button class="btn-tam yesil" onclick="ekraniGoster('ekran-kayit')">Yeni Hesap Olustur</button>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================
+     EKRAN 1: KAYIT
+     ============================================================ -->
+<div id="ekran-kayit" class="ekran">
+    <div class="auth-sarici">
+        <div class="auth-kart">
+            <div class="marka-baslik">🔐 <span class="marka-vurgu">Sifre</span>Kasasi</div>
+            <h1>Yeni Hesap Olustur</h1>
+            <p class="alt-baslik">Size ozel bir RSA anahtar cifti tarayicinizda uretilecek</p>
+
+            <label for="kayit-kullanici-adi">Kullanici Adi</label>
+            <input id="kayit-kullanici-adi" type="text" autocomplete="username">
+
+            <label for="kayit-ana-sifre">Ana Sifre</label>
+            <input id="kayit-ana-sifre" type="password" autocomplete="new-password">
+
+            <label for="kayit-ana-sifre-tekrar">Ana Sifre (Tekrar)</label>
+            <input id="kayit-ana-sifre-tekrar" type="password" autocomplete="new-password">
+
+            <div id="kayit-durum" class="durum-mesaji"></div>
+
+            <button class="btn-tam yesil" onclick="kayitOl()">Kayit Ol</button>
+            <button class="duz" style="display:block;margin:10px auto 0;" onclick="ekraniGoster('ekran-karsilama')">&lt; Geri</button>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================
+     EKRAN 2: GIRIS
+     ============================================================ -->
+<div id="ekran-giris" class="ekran">
+    <div class="auth-sarici">
+        <div class="auth-kart">
+            <div class="marka-baslik">🔐 <span class="marka-vurgu">Sifre</span>Kasasi</div>
+            <h1>Giris Yap</h1>
+            <p class="alt-baslik">Kendi Sifre Kasaniza erismek icin giris yapin</p>
+
+            <label for="giris-kullanici-adi">Kullanici Adi</label>
+            <input id="giris-kullanici-adi" type="text" autocomplete="username">
+
+            <label for="giris-ana-sifre">Ana Sifre</label>
+            <input id="giris-ana-sifre" type="password" autocomplete="current-password">
+
+            <div id="giris-durum" class="durum-mesaji"></div>
+
+            <button class="btn-tam" onclick="girisYap()">Giris Yap</button>
+            <button class="duz" style="display:block;margin:10px auto 0;" onclick="ekraniGoster('ekran-karsilama')">&lt; Geri</button>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================
+     EKRAN 3: KASA
+     ============================================================ -->
+<div id="ekran-kasa" class="ekran">
+
+    <div class="kasa-topbar">
+        <div class="kasa-logo">🔐 <span>Sifre</span>Kasasi</div>
+
+        <div class="kasa-arama">
+            <input id="arama-input" type="text" placeholder="Ara: program adi, kullanici adi, kasa..." oninput="ekraniYenidenCiz()">
+        </div>
+
+        <div class="kasa-topbar-sag">
+            <button class="btn-yeni-ekle" onclick="ekleModalAc()">+ Yeni Sifre</button>
+            <span class="kullanici-rozeti" id="kullanici-rozeti"></span>
+            <button class="kirmizi" onclick="cikisYap()">Cikis</button>
+        </div>
+    </div>
+
+    <div class="kasa-layout">
+        <aside class="sidebar">
+            <div id="sidebar-liste"></div>
+        </aside>
+
+        <main class="ana-icerik">
+            <div class="icerik-baslik-satiri">
+                <h2 id="icerik-baslik">Tum Sifreler</h2>
+                <span class="icerik-sayac-metni" id="icerik-sayac"></span>
+            </div>
+            <div id="kart-grid" class="kart-grid"></div>
+            <div id="bos-durum" class="bos-durum gizli">
+                <div class="bos-durum-ikon">🗄️</div>
+                <div id="bos-durum-mesaji">Henuz kayitli sifre yok.</div>
+                <button class="yesil" onclick="ekleModalAc()">+ Ilk Sifreni Ekle</button>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- ============================================================
+     MODAL: YENI KASA EKLE (Simge Secici Dahil)
+     ============================================================ -->
+<div id="kategori-ekle-modal" class="modal-arka-plan gizli">
+    <div class="modal-kutu" style="max-width:380px;">
+        <h3>📁 Yeni Kasa Ekle</h3>
+
+        <label for="kategoriEkle-ad">Kasa Adi</label>
+        <input id="kategoriEkle-ad" type="text" placeholder="Orn: Aile, Kripto, Okul...">
+
+        <label>Simge Sec</label>
+        <div id="kategoriEkle-simge-izgara" class="simge-izgara"></div>
+        <input type="hidden" id="kategoriEkle-simge" value="📁">
+
+        <div id="kategoriEkle-durum" class="durum-mesaji"></div>
+
+        <div class="modal-butonlar">
+            <button class="duz" style="background:var(--renk-panel-acik);" onclick="kategoriEkleKapat()">Vazgec</button>
+            <button class="yesil" onclick="kategoriEkleKaydet()">Ekle</button>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================
+     MODAL: YENI SIFRE EKLE
+     ============================================================ -->
+<div id="ekle-modal" class="modal-arka-plan gizli">
+    <div class="modal-kutu">
+        <h3>➕ Yeni Sifre Ekle</h3>
+
+        <label for="ekleModal-program-adi">Program Adi *</label>
+        <input id="ekleModal-program-adi" type="text" placeholder="Orn: Instagram">
+
+        <div class="modal-satir-2">
+            <div>
+                <label for="ekleModal-kullanici-adi">Kullanici Adi / E-posta</label>
+                <input id="ekleModal-kullanici-adi" type="text" placeholder="ornek@mail.com">
+            </div>
+            <div>
+                <label for="ekleModal-kategori">Kasa</label>
+                <select id="ekleModal-kategori"></select>
+            </div>
+        </div>
+
+        <label for="ekleModal-url">Website (opsiyonel)</label>
+        <input id="ekleModal-url" type="text" placeholder="https://instagram.com">
+
+        <label for="ekleModal-sifre">Sifre *</label>
+        <input id="ekleModal-sifre" type="text" placeholder="Sifreyi yazin veya uretin">
+        <button type="button" class="duz" style="padding-left:0;" onclick="sifreUretVeDoldur('ekleModal-sifre')">🎲 Guvenli Sifre Uret</button>
+
+        <label for="ekleModal-notlar">Guvenli Notlar (opsiyonel)</label>
+        <textarea id="ekleModal-notlar" placeholder="Guvenlik sorulari, ek bilgiler..."></textarea>
+
+        <div class="modal-checkbox-satiri">
+            <input type="checkbox" id="ekleModal-favori">
+            <label style="margin:0;" for="ekleModal-favori">⭐ Favorilere ekle</label>
+        </div>
+
+        <div id="ekleModal-durum" class="durum-mesaji"></div>
+
+        <div class="modal-butonlar">
+            <button class="duz" style="background:var(--renk-panel-acik);" onclick="ekleModalKapat()">Vazgec</button>
+            <button class="yesil" onclick="sifreEkle()">Kaydet</button>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================
+     MODAL: DUZENLE
+     ============================================================ -->
+<div id="duzenle-modal" class="modal-arka-plan gizli">
+    <div class="modal-kutu">
+        <h3>✏️ Kaydi Duzenle</h3>
+        <input type="hidden" id="duzenle-id">
+
+        <label for="duzenle-program-adi">Program Adi</label>
+        <input id="duzenle-program-adi" type="text" disabled>
+
+        <div class="modal-satir-2">
+            <div>
+                <label for="duzenle-kullanici-adi">Kullanici Adi / E-posta</label>
+                <input id="duzenle-kullanici-adi" type="text">
+            </div>
+            <div>
+                <label for="duzenle-kategori">Kasa</label>
+                <select id="duzenle-kategori"></select>
+            </div>
+        </div>
+
+        <label for="duzenle-url">Website</label>
+        <input id="duzenle-url" type="text">
+
+        <label for="duzenle-sifre">Sifre</label>
+        <input id="duzenle-sifre" type="text">
+        <button type="button" class="duz" style="padding-left:0;" onclick="sifreUretVeDoldur('duzenle-sifre')">🎲 Guvenli Sifre Uret</button>
+
+        <label for="duzenle-notlar">Guvenli Notlar</label>
+        <textarea id="duzenle-notlar"></textarea>
+
+        <div class="modal-checkbox-satiri">
+            <input type="checkbox" id="duzenle-favori">
+            <label style="margin:0;" for="duzenle-favori">⭐ Favorilere ekle</label>
+        </div>
+
+        <div id="duzenle-durum" class="durum-mesaji"></div>
+
+        <div class="modal-butonlar">
+            <button class="duz" style="background:var(--renk-panel-acik);" onclick="duzenlemeKapat()">Vazgec</button>
+            <button class="yesil" onclick="duzenlemeKaydet()">Kaydet</button>
+        </div>
+    </div>
+</div>
+
+<div id="toast-konteyner"></div>
+
+<script src="CryptoHelper.js"></script>
+<script>
+/* ==============================================================
+   index.html icindeki uygulama mantigi (Fetch API ile backend baglantisi)
+   ============================================================== */
+
+const API_BASE_URL = "http://localhost:5150"; // <-- KENDI PORTUNUZLA DEGISTIRIN
+
+// Kasa olustururken secilebilecek emoji simgeleri
+const SIMGE_SECENEKLERI = [
+    "📁", "📱", "💼", "🏦", "✉️", "🎮", "🛒",
+    "🏠", "❤️", "🎓", "🔒", "⭐", "✈️", "🎵",
+    "📷", "🐾", "🍔", "💻", "🏥", "🎨", "🚗"
+];
+
+const oturum = { token: null, userId: null, username: null, publicKey: null, privateKey: null };
+
+// ------------------------------------------------------------
+// AUTO-LOCK: Kullanici fare/klavye ile 5 dakika boyunca etkilesime
+// girmezse, bellekteki Private Key SILINIR ve giris ekranina donulur.
+// Bu, "acik birakilmis bir bilgisayar" senaryosuna karsi bir koruma --
+// sunucu tarafinda degil, SADECE tarayicida (client-side) calisir.
+// ------------------------------------------------------------
+const OTOMATIK_KILIT_SURESI_MS = 5 * 60 * 1000; // 5 dakika
+let otomatikKilitZamanlayiciId = null;
+
+function otomatikKilitZamanlayicisiniBaslat() {
+    if (otomatikKilitZamanlayiciId) clearTimeout(otomatikKilitZamanlayiciId);
+    otomatikKilitZamanlayiciId = setTimeout(otomatikKilitUygula, OTOMATIK_KILIT_SURESI_MS);
+}
+
+function otomatikKilitZamanlayicisiniDurdur() {
+    if (otomatikKilitZamanlayiciId) {
+        clearTimeout(otomatikKilitZamanlayiciId);
+        otomatikKilitZamanlayiciId = null;
+    }
+}
+
+// Sadece OTURUM ACIKKEN sayaci sifirlar -- giris ekranindayken gereksiz
+// yere calismasin diye oturum.token kontrolu yapiyoruz.
+function kullaniciEtkilesimiOldu() {
+    if (!oturum.token) return;
+    otomatikKilitZamanlayicisiniBaslat();
+}
+
+function otomatikKilitUygula() {
+    if (!oturum.token) return; // zaten cikis yapilmissa hicbir sey yapma
+
+    oturumuTemizle();
+    ekraniGoster("ekran-giris");
+    tost("5 dakika hareketsizlik nedeniyle oturumunuz guvenlik amaciyla kilitlendi. Lutfen tekrar giris yapin.", "hata");
+}
+
+// Fare hareketi, tus basimi, dokunma ve kaydirma -- hepsi "hala buradayim" sayilir.
+// { passive: true } sayesinde bu dinleyiciler sayfa performansini etkilemez.
+["mousemove", "mousedown", "keydown", "touchstart", "scroll"].forEach(olayAdi => {
+    document.addEventListener(olayAdi, kullaniciEtkilesimiOldu, { passive: true });
+});
+
+let tumKayitlar = [];
+let dinamikKategoriler = [];
+let aktifFiltre = "TUMU";
+let secilenSimge = "📁";
+
+function ekraniGoster(id) {
+    document.querySelectorAll(".ekran").forEach(el => el.classList.remove("aktif"));
+    document.getElementById(id).classList.add("aktif");
+}
+
+function durumGoster(elementId, mesaj, basariliMi = false) {
+    const el = document.getElementById(elementId);
+    el.textContent = mesaj;
+    el.classList.toggle("basarili", basariliMi);
+}
+
+function tost(mesaj, tip = "bilgi") {
+    const konteyner = document.getElementById("toast-konteyner");
+    const el = document.createElement("div");
+    el.className = "toast " + tip;
+    el.textContent = mesaj;
+    konteyner.appendChild(el);
+    requestAnimationFrame(() => el.classList.add("goster"));
+    setTimeout(() => {
+        el.classList.remove("goster");
+        setTimeout(() => el.remove(), 250);
+    }, 3000);
+}
+
+function kategoriRenginiHesapla(categoryId) {
+    if (!categoryId) return "var(--renk-kategorisiz)";
+    const hue = (categoryId * 47) % 360;
+    return `hsl(${hue}, 60%, 55%)`;
+}
+
+// ------------------------------------------------------------
+// Bir kasanin Icon alani BOS gelirse (ornegin migration'dan once
+// olusturulmus eski kayitlar), kasa ADINA bakarak anlamli bir ikon
+// tahmin eder ("Alisveris" -> 🛒, "Oyun" -> 🎮 gibi). Hicbir esleşme
+// bulunamazsa genel bir klasor ikonuna duser.
+// ------------------------------------------------------------
+function varsayilanSimgeTahminEt(kategoriAdi) {
+    const ad = (kategoriAdi || "").trim().toLowerCase();
+
+    // 1) Bilinen varsayilan kasa isimleriyle TAM eslesme (yanlis pozitif riski yok)
+    const tamEslesmeler = {
+        "sosyal medya": "📱",
+        "is": "💼",
+        "iş": "💼",
+        "banka": "🏦",
+        "e-posta": "✉️",
+        "eposta": "✉️",
+        "oyun": "🎮",
+        "alisveris": "🛒",
+        "alışveriş": "🛒"
+    };
+    if (tamEslesmeler[ad]) return tamEslesmeler[ad];
+
+    // 2) Daha genel ama yeterince belirgin (guvenli) anahtar kelimeler
+    const anahtarKelimeler = [
+        [["oyun", "game"], "🎮"],
+        [["banka", "finans"], "🏦"],
+        [["sosyal", "instagram", "twitter", "facebook"], "📱"],
+        [["alisveris", "alışveriş", "market", "shop"], "🛒"],
+        [["posta", "mail"], "✉️"],
+        [["saglik", "health", "hastane"], "🏥"],
+        [["seyahat", "tatil", "travel"], "✈️"],
+        [["egitim", "okul", "school"], "🎓"],
+        [["muzik", "music"], "🎵"],
+        [["araba", "otomobil", "car"], "🚗"]
+    ];
+
+    for (const [kelimeler, simge] of anahtarKelimeler) {
+        if (kelimeler.some(k => ad.includes(k))) return simge;
+    }
+
+    return "📁";
+}
+
+// Tek yerden cagirmak icin: kategori nesnesini alir, ikon var mi yok mu
+// bakar, yoksa isme gore tahmin eder.
+function kategoriSimgesi(kategori) {
+    if (!kategori) return "📭";
+    return kategori.icon || varsayilanSimgeTahminEt(kategori.name);
+}
+
+// ==============================================================
+// KAYIT (REGISTER)
+// ==============================================================
+async function kayitOl() {
+    const username = document.getElementById("kayit-kullanici-adi").value.trim();
+    const anaSifre = document.getElementById("kayit-ana-sifre").value;
+    const anaSifreTekrar = document.getElementById("kayit-ana-sifre-tekrar").value;
+
+    if (!username || username.length < 3) { durumGoster("kayit-durum", "Kullanici adi en az 3 karakter olmali."); return; }
+    if (!anaSifre || anaSifre.length < 6) { durumGoster("kayit-durum", "Ana sifre en az 6 karakter olmali."); return; }
+    if (anaSifre !== anaSifreTekrar) { durumGoster("kayit-durum", "Sifreler eslesmiyor."); return; }
+
+    durumGoster("kayit-durum", "RSA anahtar cifti uretiliyor, lutfen bekleyin...");
+
+    try {
+        const paket = await CryptoHelper.kayitPaketiHazirla(username, anaSifre);
+
+        const yanit = await fetch(`${API_BASE_URL}/api/auth/register`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(paket)
+        });
+
+        if (!yanit.ok) {
+            const hata = await yanit.json().catch(() => ({}));
+            durumGoster("kayit-durum", hata.message || "Kayit basarisiz oldu.");
+            return;
+        }
+
+        const veri = await yanit.json();
+        await oturumuBaslat(veri, anaSifre);
+
+        durumGoster("kayit-durum", "Kayit basarili! Kasaniza yonlendiriliyorsunuz.", true);
+        setTimeout(() => kasayiAcVeYukle(), 500);
+
+    } catch (hata) {
+        console.error(hata);
+        durumGoster("kayit-durum", "Beklenmeyen bir hata olustu: " + hata.message);
+    }
+}
+
+// ==============================================================
+// GIRIS (LOGIN)
+// ==============================================================
+async function girisYap() {
+    const username = document.getElementById("giris-kullanici-adi").value.trim();
+    const anaSifre = document.getElementById("giris-ana-sifre").value;
+
+    if (!username || !anaSifre) { durumGoster("giris-durum", "Kullanici adi ve ana sifre bos olamaz."); return; }
+
+    durumGoster("giris-durum", "Giris yapiliyor...");
+
+    try {
+        const saltYaniti = await fetch(`${API_BASE_URL}/api/auth/salt/${encodeURIComponent(username)}`);
+        if (!saltYaniti.ok) { durumGoster("giris-durum", "Kullanici adi veya ana sifre hatali."); return; }
+        const { salt } = await saltYaniti.json();
+
+        const masterHash = await CryptoHelper.anaSifreyiHashle(anaSifre, salt);
+
+        const yanit = await fetch(`${API_BASE_URL}/api/auth/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, masterHash })
+        });
+
+        if (!yanit.ok) {
+            const hata = await yanit.json().catch(() => ({}));
+            durumGoster("giris-durum", hata.message || "Kullanici adi veya ana sifre hatali.");
+            return;
+        }
+
+        const veri = await yanit.json();
+        await oturumuBaslat(veri, anaSifre);
+
+        durumGoster("giris-durum", "Giris basarili!", true);
+        setTimeout(() => kasayiAcVeYukle(), 300);
+
+    } catch (hata) {
+        console.error(hata);
+        durumGoster("giris-durum", "Ana sifre hatali ya da Private Key cozulemedi.");
+    }
+}
+
+async function oturumuBaslat(backendYaniti, anaSifre) {
+    oturum.token = backendYaniti.token;
+    oturum.userId = backendYaniti.userId;
+    oturum.username = backendYaniti.username;
+    oturum.privateKey = await CryptoHelper.privateKeyiCoz(backendYaniti.encryptedPrivateKeyPem, anaSifre);
+    oturum.publicKey = await CryptoHelper.pemdenPublicKeyYukle(backendYaniti.publicKeyPem);
+
+    // Basarili giris/kayit sonrasi Auto-Lock sayacini baslat
+    otomatikKilitZamanlayicisiniBaslat();
+}
+
+function oturumuTemizle() {
+    otomatikKilitZamanlayicisiniDurdur();
+    oturum.token = null; oturum.userId = null; oturum.username = null;
+    oturum.publicKey = null; oturum.privateKey = null;
+    tumKayitlar = []; dinamikKategoriler = []; aktifFiltre = "TUMU";
+}
+
+function cikisYap() {
+    oturumuTemizle();
+    ekraniGoster("ekran-karsilama");
+}
+
+function yetkiliBasliklar(ekBaslik = {}) {
+    return { ...ekBaslik, "Authorization": `Bearer ${oturum.token}` };
+}
+
+// ==============================================================
+// KASA YUKLEME
+// ==============================================================
+async function kasayiAcVeYukle() {
+    document.getElementById("kullanici-rozeti").textContent = "👤 " + oturum.username;
+    ekraniGoster("ekran-kasa");
+    await Promise.all([listeyiYenile(), kategorileriYenile()]);
+}
+
+async function listeyiYenile() {
+    try {
+        const yanit = await fetch(`${API_BASE_URL}/api/vault`, { headers: yetkiliBasliklar() });
+        if (!yanit.ok) { tost("Kayitlar yuklenemedi.", "hata"); return; }
+
+        tumKayitlar = await yanit.json();
+        ekraniYenidenCiz();
+    } catch (hata) {
+        console.error(hata);
+        tost("Baglanti hatasi.", "hata");
+    }
+}
+
+async function kategorileriYenile() {
+    try {
+        const yanit = await fetch(`${API_BASE_URL}/api/category`, { headers: yetkiliBasliklar() });
+        if (!yanit.ok) { tost("Kasalar yuklenemedi.", "hata"); return; }
+
+        dinamikKategoriler = await yanit.json();
+        ekraniYenidenCiz();
+    } catch (hata) {
+        console.error(hata);
+        tost("Baglanti hatasi (kasalar).", "hata");
+    }
+}
+
+// ------------------------------------------------------------
+// SAF (PURE) FILTRELEME FONKSIYONU
+// ------------------------------------------------------------
+function kayitlariFiltrele(kayitlar, filtre, aramaMetni) {
+    let sonuc = kayitlar;
+
+    if (filtre === "FAVORILER") {
+        sonuc = sonuc.filter(k => k.isFavorite);
+    } else if (filtre === "KATEGORISIZ") {
+        sonuc = sonuc.filter(k => !k.categoryId);
+    } else if (filtre !== "TUMU" && filtre.startsWith("cat-")) {
+        const kategoriId = parseInt(filtre.slice(4), 10);
+        sonuc = sonuc.filter(k => k.categoryId === kategoriId);
+    }
+
+    const sorgu = (aramaMetni || "").trim().toLowerCase();
+    if (sorgu) {
+        sonuc = sonuc.filter(k =>
+            k.appName.toLowerCase().includes(sorgu) ||
+            (k.username || "").toLowerCase().includes(sorgu) ||
+            (k.categoryName || "").toLowerCase().includes(sorgu) ||
+            (k.url || "").toLowerCase().includes(sorgu)
+        );
+    }
+
+    return sonuc;
+}
+
+function varsayilanKategoriHesapla(filtre) {
+    if (filtre.startsWith("cat-")) return parseInt(filtre.slice(4), 10);
+    return null;
+}
+
+function sidebarTiklandi(filtre) {
+    aktifFiltre = filtre;
+    ekraniYenidenCiz();
+}
+
+function ekraniYenidenCiz() {
+    sidebarCiz();
+
+    const aramaMetni = document.getElementById("arama-input").value;
+    const filtrelenmis = kayitlariFiltrele(tumKayitlar, aktifFiltre, aramaMetni);
+
+    let baslik = "Tum Sifreler";
+    if (aktifFiltre === "FAVORILER") baslik = "⭐ Favoriler";
+    else if (aktifFiltre === "KATEGORISIZ") baslik = "📭 Kategorisiz";
+    else if (aktifFiltre.startsWith("cat-")) {
+        const id = parseInt(aktifFiltre.slice(4), 10);
+        const kategori = dinamikKategoriler.find(k => k.id === id);
+        baslik = kategori ? `${kategoriSimgesi(kategori)} ${kategori.name}` : "Kasa";
+    }
+
+    document.getElementById("icerik-baslik").textContent = baslik;
+    document.getElementById("icerik-sayac").textContent = `${filtrelenmis.length} kayit`;
+
+    kartlariCiz(filtrelenmis, aramaMetni);
+}
+
+function sidebarCiz() {
+    const toplamSayi = tumKayitlar.length;
+    const favoriSayi = tumKayitlar.filter(k => k.isFavorite).length;
+    const kategorisizSayi = tumKayitlar.filter(k => !k.categoryId).length;
+
+    const sabitOgeHtml = (filtre, ikon, etiket, sayac) => `
+        <div class="sidebar-oge ${aktifFiltre === filtre ? 'secili' : ''}">
+            <div class="sidebar-oge-tiklanabilir" onclick="sidebarTiklandi('${filtre}')">
+                <span class="sidebar-ikon">${ikon}</span>
+                <span class="sidebar-etiket">${etiket}</span>
+                <span class="sidebar-sayac">${sayac}</span>
+            </div>
+        </div>`;
+
+    const kategoriOgeHtml = (kategori) => {
+        const filtre = "cat-" + kategori.id;
+        const guvenliAd = kategori.name.replace(/'/g, "\\'");
+        return `
+        <div class="sidebar-oge ${aktifFiltre === filtre ? 'secili' : ''}">
+            <div class="sidebar-oge-tiklanabilir" onclick="sidebarTiklandi('${filtre}')">
+                <span class="sidebar-ikon">${kategoriSimgesi(kategori)}</span>
+                <span class="sidebar-etiket" title="${kategori.name}">${kategori.name}</span>
+                <span class="sidebar-sayac">${kategori.sifreSayisi}</span>
+            </div>
+            <button class="sidebar-sil-btn" title="Kasayi sil" onclick="event.stopPropagation(); kategoriSil(${kategori.id}, '${guvenliAd}')">🗑</button>
+        </div>`;
+    };
+
+    let html = sabitOgeHtml("TUMU", "🗂️", "Tum Sifreler", toplamSayi);
+    html += sabitOgeHtml("FAVORILER", "⭐", "Favoriler", favoriSayi);
+    html += sabitOgeHtml("KATEGORISIZ", "📭", "Kategorisiz", kategorisizSayi);
+
+    html += `<div class="sidebar-baslik">Kasalarim <button class="sidebar-ekle-btn" onclick="kategoriEkleAc()">+ Yeni</button></div>`;
+
+    if (dinamikKategoriler.length === 0) {
+        html += `<div style="padding:8px 10px; font-size:0.8rem; color:var(--renk-metin-soluk);">Henuz kasa yok.</div>`;
+    } else {
+        dinamikKategoriler.forEach(kategori => { html += kategoriOgeHtml(kategori); });
+    }
+
+    document.getElementById("sidebar-liste").innerHTML = html;
+}
+
+function kartlariCiz(kayitlar, aramaMetni) {
+    const grid = document.getElementById("kart-grid");
+    const bosDurum = document.getElementById("bos-durum");
+
+    if (kayitlar.length === 0) {
+        grid.innerHTML = "";
+        grid.classList.add("gizli");
+        bosDurum.classList.remove("gizli");
+        document.getElementById("bos-durum-mesaji").textContent =
+            (aramaMetni || "").trim()
+                ? "Aramanizla eslesen kayit yok."
+                : (aktifFiltre === "TUMU" ? "Henuz kayitli sifre yok." : "Bu kasada henuz kayit yok.");
+        return;
+    }
+
+    grid.classList.remove("gizli");
+    bosDurum.classList.add("gizli");
+
+    grid.innerHTML = kayitlar.map(kayit => {
+        const renk = kategoriRenginiHesapla(kayit.categoryId);
+        const kategori = dinamikKategoriler.find(k => k.id === kayit.categoryId);
+        const kartIkonu = kategoriSimgesi(kategori);
+        const yildizSinif = kayit.isFavorite ? "yildiz-btn aktif" : "yildiz-btn";
+        const notIkonu = kayit.encryptedNotes ? " 📝" : "";
+        const kategoriGosterim = kayit.categoryName ? `${kartIkonu} ${kayit.categoryName}` : "📭 Kategorisiz";
+
+        return `
+        <div class="kart" id="kart-${kayit.id}">
+            <div class="kart-ust">
+                <div class="kart-avatar" style="background:${renk};">${kartIkonu}</div>
+                <div class="kart-baslik-blok">
+                    <strong title="${kayit.appName}">${kayit.appName}${notIkonu}</strong>
+                    <span class="kart-kategori-etiket" style="color:${renk};">${kategoriGosterim}</span>
+                </div>
+                <button class="${yildizSinif}" title="Favori" onclick="favoriDegistir('${kayit.id}', ${kayit.isFavorite})">★</button>
+            </div>
+            <div class="kart-detay">
+                ${kayit.username ? `<div>👤 ${kayit.username}</div>` : ""}
+                ${kayit.url ? `<div>🔗 <a href="${kayit.url}" target="_blank" rel="noopener">${kayit.url.replace(/^https?:\/\//, "")}</a></div>` : ""}
+            </div>
+            <div class="kart-aksiyonlar">
+                <button onclick="sifreGosterToggle('${kayit.id}')">👁 Goster</button>
+                <button onclick="panoyaKopyala('${kayit.id}')">📋 Kopyala</button>
+                <button onclick="duzenlemeAc('${kayit.id}')">✏️ Duzenle</button>
+                <button class="sil-btn" onclick="kayitSil('${kayit.id}', '${kayit.appName.replace(/'/g, "\\'")}')">🗑</button>
+            </div>
+        </div>`;
+    }).join("");
+}
+
+function kayitBul(id) {
+    return tumKayitlar.find(k => k.id === id);
+}
+
+// ==============================================================
+// GOSTER / KOPYALA
+// ==============================================================
+async function sifreGosterToggle(id) {
+    const mevcutKutu = document.getElementById("goster-" + id);
+    if (mevcutKutu) { mevcutKutu.remove(); return; }
+
+    const kayit = kayitBul(id);
+    try {
+        const duzSifre = await CryptoHelper.sifreyiCoz(oturum.privateKey, kayit.encryptedPassword);
+        let icerik = `Sifre: ${duzSifre}`;
+
+        if (kayit.encryptedNotes) {
+            const duzNot = await CryptoHelper.sifreyiCoz(oturum.privateKey, kayit.encryptedNotes);
+            icerik += `\nNotlar: ${duzNot}`;
+        }
+
+        const kutu = document.createElement("div");
+        kutu.id = "goster-" + id;
+        kutu.className = "sifre-goster-kutusu";
+        kutu.textContent = icerik;
+        document.getElementById("kart-" + id).appendChild(kutu);
+
+    } catch (hata) {
+        console.error(hata);
+        tost("Cozulemedi: " + hata.message, "hata");
+    }
+}
+
+async function panoyaKopyala(id) {
+    const kayit = kayitBul(id);
+    try {
+        const duzSifre = await CryptoHelper.sifreyiCoz(oturum.privateKey, kayit.encryptedPassword);
+        await navigator.clipboard.writeText(duzSifre);
+        tost(`'${kayit.appName}' sifresi panoya kopyalandi.`, "basarili");
+    } catch (hata) {
+        console.error(hata);
+        tost("Kopyalanamadi: " + hata.message, "hata");
+    }
+}
+
+// ==============================================================
+// FAVORI
+// ==============================================================
+async function favoriDegistir(id, mevcutDurum) {
+    try {
+        const yanit = await fetch(`${API_BASE_URL}/api/vault/${id}/favori`, {
+            method: "PATCH",
+            headers: yetkiliBasliklar({ "Content-Type": "application/json" }),
+            body: JSON.stringify({ isFavorite: !mevcutDurum })
+        });
+
+        if (!yanit.ok) { tost("Favori durumu degistirilemedi.", "hata"); return; }
+
+        await listeyiYenile();
+    } catch (hata) {
+        console.error(hata);
+        tost("Baglanti hatasi.", "hata");
+    }
+}
+
+// ==============================================================
+// KASA (KATEGORI) YONETIMI
+// ==============================================================
+function simgeIzgarasiniCiz(konteynerId, gizliInputId) {
+    const konteyner = document.getElementById(konteynerId);
+    konteyner.innerHTML = SIMGE_SECENEKLERI.map(simge => {
+        const seciliSinif = simge === secilenSimge ? "simge-secenek secili" : "simge-secenek";
+        return `<button type="button" class="${seciliSinif}" onclick="simgeSec('${simge}', '${konteynerId}', '${gizliInputId}')">${simge}</button>`;
+    }).join("");
+}
+
+function simgeSec(simge, konteynerId, gizliInputId) {
+    secilenSimge = simge;
+    document.getElementById(gizliInputId).value = simge;
+    simgeIzgarasiniCiz(konteynerId, gizliInputId);
+}
+
+function kategoriEkleAc() {
+    document.getElementById("kategoriEkle-ad").value = "";
+    secilenSimge = "📁";
+    document.getElementById("kategoriEkle-simge").value = "📁";
+    simgeIzgarasiniCiz("kategoriEkle-simge-izgara", "kategoriEkle-simge");
+    durumGoster("kategoriEkle-durum", "");
+    document.getElementById("kategori-ekle-modal").classList.remove("gizli");
+    document.getElementById("kategoriEkle-ad").focus();
+}
+
+function kategoriEkleKapat() {
+    document.getElementById("kategori-ekle-modal").classList.add("gizli");
+}
+
+async function kategoriEkleKaydet() {
+    const ad = document.getElementById("kategoriEkle-ad").value.trim();
+    const simge = document.getElementById("kategoriEkle-simge").value || "📁";
+
+    if (!ad) { durumGoster("kategoriEkle-durum", "Kasa adi bos olamaz."); return; }
+
+    try {
+        const yanit = await fetch(`${API_BASE_URL}/api/category`, {
+            method: "POST",
+            headers: yetkiliBasliklar({ "Content-Type": "application/json" }),
+            body: JSON.stringify({ name: ad, icon: simge })
+        });
+
+        if (!yanit.ok) {
+            const hata = await yanit.json().catch(() => ({}));
+            durumGoster("kategoriEkle-durum", hata.message || "Eklenemedi.");
+            return;
+        }
+
+        kategoriEkleKapat();
+        tost(`'${ad}' kasasi olusturuldu.`, "basarili");
+        await kategorileriYenile();
+
+    } catch (hata) {
+        console.error(hata);
+        durumGoster("kategoriEkle-durum", "Beklenmeyen bir hata olustu.");
+    }
+}
+
+async function kategoriSil(id, ad) {
+    if (!confirm(`'${ad}' kasasini silmek istediginize emin misiniz?\n\nBu kasadaki sifreler SILINMEZ, "Kategorisiz" bolumune tasinir.`)) {
+        return;
+    }
+
+    try {
+        const yanit = await fetch(`${API_BASE_URL}/api/category/${id}`, {
+            method: "DELETE",
+            headers: yetkiliBasliklar()
+        });
+
+        if (!yanit.ok && yanit.status !== 204) {
+            const hata = await yanit.json().catch(() => ({}));
+            tost(hata.message || "Silinemedi.", "hata");
+            return;
+        }
+
+        tost(`'${ad}' kasasi silindi.`, "basarili");
+
+        if (aktifFiltre === "cat-" + id) {
+            aktifFiltre = "TUMU";
+        }
+
+        await Promise.all([kategorileriYenile(), listeyiYenile()]);
+
+    } catch (hata) {
+        console.error(hata);
+        tost("Baglanti hatasi.", "hata");
+    }
+}
+
+function kategoriSecenekleriDoldur(selectId, seciliId) {
+    const select = document.getElementById(selectId);
+    let html = `<option value="">📭 Kategorisiz</option>`;
+    dinamikKategoriler.forEach(kategori => {
+        html += `<option value="${kategori.id}">${kategoriSimgesi(kategori)} ${kategori.name}</option>`;
+    });
+    select.innerHTML = html;
+    select.value = seciliId === null || seciliId === undefined ? "" : String(seciliId);
+}
+
+// ==============================================================
+// SIFRE URETICI
+// ==============================================================
+function sifreUretVeDoldur(hedefInputId) {
+    document.getElementById(hedefInputId).value = CryptoHelper.guvenliSifreUret(16);
+}
+
+// ==============================================================
+// MODAL: YENI SIFRE EKLE
+// ==============================================================
+function ekleModalAc() {
+    document.getElementById("ekleModal-program-adi").value = "";
+    document.getElementById("ekleModal-kullanici-adi").value = "";
+    document.getElementById("ekleModal-url").value = "";
+    document.getElementById("ekleModal-sifre").value = "";
+    document.getElementById("ekleModal-notlar").value = "";
+    document.getElementById("ekleModal-favori").checked = (aktifFiltre === "FAVORILER");
+    durumGoster("ekleModal-durum", "");
+
+    kategoriSecenekleriDoldur("ekleModal-kategori", varsayilanKategoriHesapla(aktifFiltre));
+
+    document.getElementById("ekle-modal").classList.remove("gizli");
+    document.getElementById("ekleModal-program-adi").focus();
+}
+
+function ekleModalKapat() {
+    document.getElementById("ekle-modal").classList.add("gizli");
+}
+
+async function sifreEkle() {
+    const appName = document.getElementById("ekleModal-program-adi").value.trim();
+    const username = document.getElementById("ekleModal-kullanici-adi").value.trim();
+    const kategoriRaw = document.getElementById("ekleModal-kategori").value;
+    const categoryId = kategoriRaw ? parseInt(kategoriRaw, 10) : null;
+    const url = document.getElementById("ekleModal-url").value.trim();
+    const duzSifre = document.getElementById("ekleModal-sifre").value;
+    const duzNot = document.getElementById("ekleModal-notlar").value.trim();
+    const favori = document.getElementById("ekleModal-favori").checked;
+
+    if (!appName || !duzSifre) {
+        durumGoster("ekleModal-durum", "Program adi ve sifre bos olamaz.");
+        return;
+    }
+
+    try {
+        const encryptedPassword = await CryptoHelper.sifreyiSifrele(oturum.publicKey, duzSifre);
+        const encryptedNotes = duzNot ? await CryptoHelper.sifreyiSifrele(oturum.publicKey, duzNot) : null;
+
+        const yanit = await fetch(`${API_BASE_URL}/api/vault`, {
+            method: "POST",
+            headers: yetkiliBasliklar({ "Content-Type": "application/json" }),
+            body: JSON.stringify({
+                appName, username: username || null, encryptedPassword, encryptedNotes,
+                categoryId, url: url || null, isFavorite: favori
+            })
+        });
+
+        if (!yanit.ok) {
+            const hata = await yanit.json().catch(() => ({}));
+            durumGoster("ekleModal-durum", hata.message || "Kaydedilemedi.");
+            return;
+        }
+
+        ekleModalKapat();
+        tost(`'${appName}' kasaniza eklendi.`, "basarili");
+        await Promise.all([listeyiYenile(), kategorileriYenile()]);
+
+    } catch (hata) {
+        console.error(hata);
+        durumGoster("ekleModal-durum", "Beklenmeyen bir hata olustu.");
+    }
+}
+
+// ==============================================================
+// MODAL: DUZENLE
+// ==============================================================
+async function duzenlemeAc(id) {
+    const kayit = kayitBul(id);
+
+    document.getElementById("duzenle-id").value = id;
+    document.getElementById("duzenle-program-adi").value = kayit.appName;
+    document.getElementById("duzenle-kullanici-adi").value = kayit.username || "";
+    kategoriSecenekleriDoldur("duzenle-kategori", kayit.categoryId);
+    document.getElementById("duzenle-url").value = kayit.url || "";
+    document.getElementById("duzenle-favori").checked = kayit.isFavorite;
+    durumGoster("duzenle-durum", "");
+
+    try {
+        document.getElementById("duzenle-sifre").value =
+            await CryptoHelper.sifreyiCoz(oturum.privateKey, kayit.encryptedPassword);
+
+        document.getElementById("duzenle-notlar").value = kayit.encryptedNotes
+            ? await CryptoHelper.sifreyiCoz(oturum.privateKey, kayit.encryptedNotes)
+            : "";
+    } catch (hata) {
+        console.error(hata);
+        durumGoster("duzenle-durum", "Mevcut sifre cozulemedi.");
+    }
+
+    document.getElementById("duzenle-modal").classList.remove("gizli");
+}
+
+function duzenlemeKapat() {
+    document.getElementById("duzenle-modal").classList.add("gizli");
+}
+
+async function duzenlemeKaydet() {
+    const id = document.getElementById("duzenle-id").value;
+    const username = document.getElementById("duzenle-kullanici-adi").value.trim();
+    const kategoriRaw = document.getElementById("duzenle-kategori").value;
+    const categoryId = kategoriRaw ? parseInt(kategoriRaw, 10) : null;
+    const url = document.getElementById("duzenle-url").value.trim();
+    const duzSifre = document.getElementById("duzenle-sifre").value;
+    const duzNot = document.getElementById("duzenle-notlar").value.trim();
+    const favori = document.getElementById("duzenle-favori").checked;
+
+    if (!duzSifre) { durumGoster("duzenle-durum", "Sifre bos olamaz."); return; }
+
+    try {
+        const encryptedPassword = await CryptoHelper.sifreyiSifrele(oturum.publicKey, duzSifre);
+        const encryptedNotes = duzNot ? await CryptoHelper.sifreyiSifrele(oturum.publicKey, duzNot) : null;
+
+        const yanit = await fetch(`${API_BASE_URL}/api/vault/${id}`, {
+            method: "PUT",
+            headers: yetkiliBasliklar({ "Content-Type": "application/json" }),
+            body: JSON.stringify({
+                username: username || null, encryptedPassword, encryptedNotes,
+                categoryId, url: url || null, isFavorite: favori
+            })
+        });
+
+        if (!yanit.ok) {
+            const hata = await yanit.json().catch(() => ({}));
+            durumGoster("duzenle-durum", hata.message || "Guncellenemedi.");
+            return;
+        }
+
+        duzenlemeKapat();
+        tost("Degisiklikler kaydedildi.", "basarili");
+        await Promise.all([listeyiYenile(), kategorileriYenile()]);
+
+    } catch (hata) {
+        console.error(hata);
+        durumGoster("duzenle-durum", "Beklenmeyen bir hata olustu.");
+    }
+}
+
+// ==============================================================
+// SILME (DELETE)
+// ==============================================================
+async function kayitSil(id, appName) {
+    if (!confirm(`'${appName}' kaydini silmek istediginize emin misiniz?`)) return;
+
+    try {
+        const yanit = await fetch(`${API_BASE_URL}/api/vault/${id}`, {
+            method: "DELETE",
+            headers: yetkiliBasliklar()
+        });
+
+        if (!yanit.ok && yanit.status !== 204) { tost("Silinemedi.", "hata"); return; }
+
+        tost(`'${appName}' silindi.`, "basarili");
+        await Promise.all([listeyiYenile(), kategorileriYenile()]);
+
+    } catch (hata) {
+        console.error(hata);
+        tost("Baglanti hatasi.", "hata");
+    }
+}
+
+// Node.js ortaminda saf fonksiyonlari test edebilmek icin
+if (typeof module !== "undefined") {
+    module.exports = { kayitlariFiltrele, varsayilanKategoriHesapla, kategoriRenginiHesapla, varsayilanSimgeTahminEt, kategoriSimgesi };
+}
+</script>
+
+<!-- ==============================================================
+     INTERAKTIF SIBER-AG ARKA PLANI (Canvas API -- harici kutuphane YOK)
+     ==============================================================
+     Bu script tamamen BAGIMSIZ bir IIFE (kendi kendini cagiran fonksiyon).
+     Uygulamanin geri kalaniyla (CryptoHelper, oturum yonetimi vb.) HICBIR
+     ortak degiskeni yok, dolayisiyla mevcut isleyisi ASLA bozamaz. Canvas
+     bulunamazsa (typeof kontrolu) sessizce hicbir sey yapmadan cikar.
+     ============================================================== -->
+<script>
+(function () {
+    const canvas = document.getElementById("arka-plan-canvas");
+    if (!canvas || !canvas.getContext) return;
+    const ctx = canvas.getContext("2d");
+
+    let genislik = 0;
+    let yukseklik = 0;
+    let parcaciklar = [];
+    let fareX = null;
+    let fareY = null;
+    let animasyonId = null;
+
+    // Neon mavi / mor / yesil -- "rgba(r,g,b," seklinde birakiliyor,
+    // alpha degeri kullanim aninda ekleniyor.
+    const RENKLER = [
+        "rgba(102, 217, 255,",  // neon mavi
+        "rgba(168, 117, 255,",  // neon mor
+        "rgba(62, 242, 176,"    // neon yesil
+    ];
+
+    const MAX_BAGLANTI_MESAFESI = 130; // bu mesafeden yakin parcaciklar cizgiyle baglanir
+    const FARE_ETKI_YARICAPI = 140;    // fareye bu kadar yakin parcaciklar hafifce itilir
+
+    function boyutlandir() {
+        genislik = canvas.width = window.innerWidth;
+        yukseklik = canvas.height = window.innerHeight;
+
+        // Ekran alanina gore parcacik sayisini olcekle (kucuk telefon
+        // ekraninda az, buyuk monitorde daha fazla -- ama HER ZAMAN bir tavan var)
+        const hedefSayi = Math.min(110, Math.max(35, Math.floor((genislik * yukseklik) / 9000)));
+
+        parcaciklar = Array.from({ length: hedefSayi }, () => ({
+            x: Math.random() * genislik,
+            y: Math.random() * yukseklik,
+            vx: (Math.random() - 0.5) * 0.35,
+            vy: (Math.random() - 0.5) * 0.35,
+            r: 1.4 + Math.random() * 1.6,
+            renk: RENKLER[Math.floor(Math.random() * RENKLER.length)]
+        }));
+    }
+
+    function guncelleVeCiz() {
+        ctx.clearRect(0, 0, genislik, yukseklik);
+
+        // ---- Parcaciklari guncelle ve ciz ----
+        for (const p of parcaciklar) {
+            // Fareye yakinsa hafifce it -- interaktif "parallax" hissi
+            if (fareX !== null) {
+                const dx = p.x - fareX;
+                const dy = p.y - fareY;
+                const mesafe = Math.hypot(dx, dy);
+                if (mesafe < FARE_ETKI_YARICAPI && mesafe > 0.1) {
+                    const kuvvet = (1 - mesafe / FARE_ETKI_YARICAPI) * 0.03;
+                    p.vx += (dx / mesafe) * kuvvet;
+                    p.vy += (dy / mesafe) * kuvvet;
+                }
+            }
+
+            p.x += p.vx;
+            p.y += p.vy;
+
+            // Kenarlardan sekme
+            if (p.x < 0 || p.x > genislik) { p.vx *= -1; p.x = Math.max(0, Math.min(genislik, p.x)); }
+            if (p.y < 0 || p.y > yukseklik) { p.vy *= -1; p.y = Math.max(0, Math.min(yukseklik, p.y)); }
+
+            // Surtunme -- fare itmesi sonsuza kadar hizlanmasin
+            p.vx *= 0.985;
+            p.vy *= 0.985;
+
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+            ctx.fillStyle = p.renk + "0.6)";
+            ctx.fill();
+        }
+
+        // ---- Yakin parcaciklar arasina baglanti cizgisi ----
+        for (let i = 0; i < parcaciklar.length; i++) {
+            for (let j = i + 1; j < parcaciklar.length; j++) {
+                const a = parcaciklar[i];
+                const b = parcaciklar[j];
+                const dx = a.x - b.x;
+                const dy = a.y - b.y;
+                const mesafe = Math.hypot(dx, dy);
+
+                if (mesafe < MAX_BAGLANTI_MESAFESI) {
+                    const opaklik = (1 - mesafe / MAX_BAGLANTI_MESAFESI) * 0.16;
+                    ctx.beginPath();
+                    ctx.moveTo(a.x, a.y);
+                    ctx.lineTo(b.x, b.y);
+                    ctx.strokeStyle = `rgba(137, 180, 250, ${opaklik})`;
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                }
+            }
+        }
+
+        animasyonId = requestAnimationFrame(guncelleVeCiz);
+    }
+
+    function fareyiTakipEt(olay) {
+        fareX = olay.clientX;
+        fareY = olay.clientY;
+    }
+
+    function fareAyrildi() {
+        fareX = null;
+        fareY = null;
+    }
+
+    let boyutlandirmaZamanlayici = null;
+    function boyutDegistiginde() {
+        clearTimeout(boyutlandirmaZamanlayici);
+        boyutlandirmaZamanlayici = setTimeout(boyutlandir, 200);
+    }
+
+    // Sekme (tab) arka plana atildiginda animasyonu DURDUR -- pil/CPU tasarrufu.
+    // Performans gereksinimi tam olarak bunun icin.
+    document.addEventListener("visibilitychange", () => {
+        if (document.hidden) {
+            if (animasyonId) cancelAnimationFrame(animasyonId);
+            animasyonId = null;
+        } else if (!animasyonId) {
+            guncelleVeCiz();
+        }
+    });
+
+    window.addEventListener("resize", boyutDegistiginde, { passive: true });
+    window.addEventListener("mousemove", fareyiTakipEt, { passive: true });
+    window.addEventListener("mouseout", fareAyrildi, { passive: true });
+
+    boyutlandir();
+    guncelleVeCiz();
+})();
+</script>
+</body>
+</html>
